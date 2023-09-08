@@ -1,0 +1,19 @@
+{
+  "name": "dequeuedesktop",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/Quickzand/DequeueDesktop.git"
+  },
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/Quickzand/DequeueDesktop/issues"
+  },
+  "homepage": "https://github.com/Quickzand/DequeueDesktop#readme"
+}
