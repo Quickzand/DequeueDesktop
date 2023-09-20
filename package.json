@@ -2,8 +2,9 @@
   "name": "dequeuedesktop",
   "version": "1.0.0",
   "description": "",
-  "main": "index.js",
+  "main": "main.js",
   "scripts": {
+    "start": "electron .",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "repository": {
@@ -15,5 +16,13 @@
   "bugs": {
     "url": "https://github.com/Quickzand/DequeueDesktop/issues"
   },
-  "homepage": "https://github.com/Quickzand/DequeueDesktop#readme"
+  "homepage": "https://github.com/Quickzand/DequeueDesktop#readme",
+  "devDependencies": {
+    "electron": "^26.2.1",
+    "fs": "0.0.1-security",
+    "qrcode": "^1.5.3"
+  },
+  "dependencies": {
+    "qrcode-generator": "^1.4.4"
+  }
 }

@@ -1,0 +1,36 @@
+body {
+    background-image: linear-gradient(45deg, #23D183, #145acc);
+    background-repeat: no-repeat;
+    background-size: cover;
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: space-evenly;
+    align-items: center;
+    flex-direction: column;
+    color: white;
+    font-size: 40px;
+    font-family: 'Roboto', sans-serif;
+
+}
+
+#qrCanvas {
+    width: 300px;
+    height: 300px;
+}
+
+#qrCanvas img {
+    width: 100%;
+    height: 100%;
+}
+
+#code {
+    text-align: center;
+    margin-bottom: 1rem;
+}
+
+#title {
+    font-size: 60px;
+    margin-bottom: 1rem;
+    font-weight: 700;
+}

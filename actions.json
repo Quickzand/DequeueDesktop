@@ -1,0 +1,226 @@
+[
+    {
+        "actions": [
+            [
+                {
+                    "name": "PAGE 2",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Option": false,
+                        "Command": false,
+                        "Control": false,
+                        "Shift": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#785700",
+                    "uid": "E9276639-EA91-4A34-A778-4256F4F8F6A6"
+                },
+                {
+                    "name": "Test",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Command": false,
+                        "Control": false,
+                        "Option": false,
+                        "Shift": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#C3D117",
+                    "uid": "5E1DFAAB-0695-43FC-B956-7BC052C168DA"
+                },
+                {
+                    "name": "Ball",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Shift": false,
+                        "Control": false,
+                        "Command": false,
+                        "Option": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "C6BE3C91-37E9-46B2-8B0F-E0CFE04C79DD"
+                }
+            ],
+            [
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Option": false,
+                        "Control": false,
+                        "Command": false,
+                        "Shift": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "727B2B91-EAAC-46F6-B437-C3ABE246A9DB"
+                },
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Option": false,
+                        "Control": false,
+                        "Command": false,
+                        "Shift": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "2C95EC58-999B-4951-9F18-853F6C35F7AC"
+                },
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Control": false,
+                        "Option": false,
+                        "Command": false,
+                        "Shift": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "0AD92149-7D1F-4A58-B745-1603FD63DEA0"
+                }
+            ],
+            [
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Command": false,
+                        "Shift": false,
+                        "Control": false,
+                        "Option": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "ED056663-30A2-4522-A77C-61884A698ED4"
+                },
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Control": false,
+                        "Shift": false,
+                        "Command": false,
+                        "Option": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "43277236-0AC8-4365-AE90-D983B6F03A0E"
+                },
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Option": false,
+                        "Control": false,
+                        "Command": false,
+                        "Shift": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "6C904AC0-B44B-44D6-A4C5-10301599A1C8"
+                }
+            ],
+            [
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Command": false,
+                        "Option": false,
+                        "Shift": false,
+                        "Control": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "A6BBED12-5E71-4CD5-B5B1-B3513762F7D8"
+                },
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Control": false,
+                        "Command": false,
+                        "Option": false,
+                        "Shift": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "B5BB6DCC-E1E5-409B-AF1B-F8C448DF27D7"
+                },
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Shift": false,
+                        "Option": false,
+                        "Command": false,
+                        "Control": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "1A7EB3A1-87EB-4A9E-A8A0-D8282D34C2D0"
+                }
+            ],
+            [
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Control": false,
+                        "Option": false,
+                        "Command": false,
+                        "Shift": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "CE995F7C-A728-4D4C-8FC1-38E4E7B77DF2"
+                },
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Shift": false,
+                        "Control": false,
+                        "Command": false,
+                        "Option": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "9CE8ECCB-DEE7-4280-8325-708DB438E337"
+                },
+                {
+                    "name": "New Action",
+                    "type": "shortcut",
+                    "key": "a",
+                    "modifiers": {
+                        "Command": false,
+                        "Shift": false,
+                        "Option": false,
+                        "Control": false
+                    },
+                    "icon": "bolt.fill",
+                    "color": "#FFFFFF",
+                    "uid": "F6F475F7-E7BE-4AC5-9A6B-E4091A37CEB6"
+                }
+            ]
+        ]
+    }
+]
