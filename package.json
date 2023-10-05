@@ -5,7 +5,9 @@
   "main": "main.js",
   "scripts": {
     "start": "electron .",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder"
   },
   "repository": {
     "type": "git",
@@ -16,13 +18,28 @@
   "bugs": {
     "url": "https://github.com/Quickzand/DequeueDesktop/issues"
   },
+  "build": {
+    "appId": "com.example.myapp",
+    "mac": {
+      "category": "public.app-category.utilities"
+    },
+    "win": {
+      "target": "nsis"
+    },
+    "linux": {
+      "target": "AppImage"
+    }
+  },
   "homepage": "https://github.com/Quickzand/DequeueDesktop#readme",
   "devDependencies": {
     "electron": "^26.2.1",
+    "electron-builder": "^24.6.4",
+    "electron-rebuild": "^3.2.9",
     "fs": "0.0.1-security",
     "qrcode": "^1.5.3"
   },
   "dependencies": {
-    "qrcode-generator": "^1.4.4"
+    "qrcode-generator": "^1.4.4",
+    "robotjs": "^0.6.0"
   }
 }
