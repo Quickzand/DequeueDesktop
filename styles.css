@@ -1,36 +1,73 @@
-body {
-    background-image: linear-gradient(45deg, #23D183, #145acc);
-    background-repeat: no-repeat;
-    background-size: cover;
-    width: 100vw;
-    height: 100vh;
-    display: flex;
-    justify-content: space-evenly;
-    align-items: center;
-    flex-direction: column;
-    color: white;
-    font-size: 40px;
-    font-family: 'Roboto', sans-serif;
-
+:root {
+    /* Light mode colors */
+    --background-color: #f4f4f4;
+    --text-color: #333;
+    --title-color: #2c3e50;
+    --code-bg-color: #e74c3c;
+    --code-text-color: #fff;
+    --qr-bg-color: #fff;
 }
 
-#qrCanvas {
-    width: 300px;
-    height: 300px;
+@media (prefers-color-scheme: dark) {
+    :root {
+        /* Dark mode colors */
+        --background-color: #2c3e50;
+        --text-color: #f4f4f4;
+        --title-color: #ecf0f1;
+        --code-bg-color: #e74c3c;
+        --code-text-color: #2c3e50;
+        --qr-bg-color: #34495e;
+    }
+}
+
+body {
+    font-family: 'Roboto', sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    height: 100vh;
+    margin: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-direction: column;
+    padding: 0 rem;
+}
+
+#title {
+    font-size: 2rem;
+    margin-bottom: 2rem;
+    font-weight: 700;
+    color: var(--title-color);
 }
 
 #qrCanvas img {
     width: 100%;
-    height: 100%;
+    max-width: 10rem;
+    height: auto;
+    image-rendering: crisp-edges;
+    box-shadow: 0px 0px 15px rgba(0, 0, 0, 0.1);
+}
+
+#qrCanvas {
+    background: var(--qr-bg-color);
+    padding: 0rem;
+    border-radius: 8px;
+    display: grid;
+    place-items: center;
+    aspect-ratio: 1;
 }
 
 #code {
     text-align: center;
     margin-bottom: 1rem;
+    font-size: 1.2rem;
+    background: var(--code-bg-color);
+    color: var(--code-text-color);
+    padding: 10px;
+    border-radius: 5px;
 }
 
-#title {
-    font-size: 60px;
-    margin-bottom: 1rem;
-    font-weight: 700;
+.value {
+    font-weight: bold;
+    margin-left: 10px;
 }

@@ -16,8 +16,8 @@ const actionsFilePath = path.join(userDataPath, 'actions.json');
 function createWindow() {
     // Create the browser window.
     const win = new BrowserWindow({
-        width: 800,
-        height: 600,
+        width: 250,
+        height: 350,
         webPreferences: {
             preload: path.join(__dirname, 'preload.js'),
             nodeIntegration: false,  // Ensure this is set to false
@@ -139,6 +139,8 @@ class Action {
 
         var siriShortcut = actionData.siriShortcut ? actionData.siriShortcut : ""
 
+        var text = actionData.text ? actionData.text : ""
+
         console.log('name visible ' + actionData.nameVisible)
         var nameVisible = actionData.nameVisible != null ? actionData.nameVisible : true
 
@@ -152,10 +154,41 @@ class Action {
         this.uid = uid;
         this.nameVisible = nameVisible;
         this.siriShortcut = siriShortcut;
+        this.text = text;
 
         return this
 
 
+    }
+}
+
+
+class Group {
+    constructor(jsonString) {
+        var groupData;
+        console.log("PARSING " + jsonString)
+        try {
+            groupData = JSON.parse(jsonString);
+        } catch (error) {
+            console.log(error)
+            console.log(jsonString)
+            return;
+        }
+
+        var name = groupData.name ? groupData.name : "New Group"
+        var uid = groupData.uid ? groupData.uid : "0"
+        var row = groupData.row ? groupData.row : 0
+        var col = groupData.col ? groupData.col : 0
+        var page = groupData.page ? groupData.page : 0
+
+
+
+        this.name = name;
+        this.actions = [];
+        this.uid = uid;
+        this.row = row;
+        this.col = col;
+        this.page = page;
     }
 }
 
@@ -175,7 +208,8 @@ const server = http.createServer((req, res) => {
 
         if (code === uniqueCode.toString()) {
             res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end('Success');
+            // send wether or not the computer is a mac as a true or false string
+            res.end(os.platform() === "darwin" ? "true" : "false");
         }
         else {
             res.writeHead(401, { 'Content-Type': 'text/plain' });
@@ -245,6 +279,30 @@ const server = http.createServer((req, res) => {
             res.end('Unauthorized');
         }
     }
+    else if (req.url === '/createGroup') {
+        const code = req.headers['code'];
+
+        if (code === uniqueCode.toString()) {
+            // Get actionData from the request body
+            var body = '';
+            req.on('data', function (data) {
+                body += data;
+            });
+
+            req.on('end', function () {
+                console.log("GROUP  " + body)
+                group = new Group(body)
+
+                page.actions[row][col] = group;
+                setGroups(actionPages);
+                res.writeHead(200, { 'Content-Type': 'text/plain' });
+            });
+        }
+        else {
+            res.writeHead(401, { 'Content-Type': 'text/plain' });
+            res.end('Unauthorized');
+        }
+    }
     else if (req.url === '/runAction') {
         const code = req.headers['code'];
 
@@ -267,6 +325,8 @@ const server = http.createServer((req, res) => {
                 } catch (error) {
                     console.log(error)
                     console.log(body)
+                    res.writeHead(400, { 'Content-Type': 'text/plain' });
+                    res.end("Bad Request");
                 }
             })
         }
@@ -428,6 +488,17 @@ function getActions() {
 
         try {
             actionPages = JSON.parse(data);
+            // turn the json into Action objects 
+
+            for (var i = 0; i < actionPages.length; i++) {
+                for (var j = 0; j < actionPages[i].actions.length; j++) {
+                    for (var k = 0; k < actionPages[i].actions[j].length; k++) {
+                        if (actionPages[i].actions[j][k] === null)
+                            continue;
+                        actionPages[i].actions[j][k] = new Action(JSON.stringify(actionPages[i].actions[j][k]));
+                    }
+                }
+            }
         } catch (parseErr) {
             console.log('Error parsing actions.json:', parseErr);
         }
@@ -573,6 +644,10 @@ function runAction(actionID) {
     else if (action.type === "siriShortcut") {
         console.log("RUNNING SIRI SHORTCUT \"" + action.siriShortcut + "\"")
         child_process.execSync("shortcuts run \"" + action.siriShortcut + "\"");
+    }
+    else if (action.type == "text") {
+        console.log("TYPING TEXT \"" + action.text + "\"")
+        robot.typeString(action.text);
     }
 
 

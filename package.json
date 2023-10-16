@@ -1,7 +1,7 @@
 {
-  "name": "dequeuedesktop",
+  "name": "gizmo",
   "version": "1.0.0",
-  "description": "",
+  "description": "Run actions on your PC from your phone",
   "main": "main.js",
   "scripts": {
     "start": "electron .",
@@ -19,15 +19,32 @@
     "url": "https://github.com/Quickzand/DequeueDesktop/issues"
   },
   "build": {
-    "appId": "com.example.myapp",
+    "appId": "com.example.Gizmo",
+    "productName": "Gizmo",
+    "directories": {
+      "output": "build"
+    },
+    "files": [
+      "**/*"
+    ],
     "mac": {
-      "category": "public.app-category.utilities"
+      "category": "public.app-category.utilities",
+      "target": [
+        "dmg"
+      ],
+      "identity": "Apple Distribution: Matthew Sand (Z78FG6GVXZ)",
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false
     },
     "win": {
-      "target": "nsis"
+      "target": [
+        "nsis"
+      ]
     },
     "linux": {
-      "target": "AppImage"
+      "target": [
+        "AppImage"
+      ]
     }
   },
   "homepage": "https://github.com/Quickzand/DequeueDesktop#readme",
@@ -39,6 +56,7 @@
     "qrcode": "^1.5.3"
   },
   "dependencies": {
+    "node-abi": "^3.50.0",
     "qrcode-generator": "^1.4.4",
     "robotjs": "^0.6.0"
   }

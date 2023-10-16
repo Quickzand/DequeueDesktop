@@ -8,8 +8,8 @@ qr.addData(JSON.stringify({
     ip: ip,
     code: uniqueCode
 }));
-document.getElementById("code").innerHTML = uniqueCode;
+document.querySelector("#code > .value").innerHTML = uniqueCode;
 
 qr.make();
-document.getElementById('qrCanvas').innerHTML = qr.createImgTag();
+document.getElementById('qrCanvas').innerHTML = qr.createImgTag(6, 4);
 
