@@ -1,726 +1,705 @@
-const { app, BrowserWindow, ipcMain } = require('electron')
-const path = require('path');
-const os = require('os');
-const fs = require('fs');
-const http = require('http');
-var robot = require("robotjs");
-const child_process = require('child_process');
+const { app, BrowserWindow, Tray, Menu, ipcMain } = require("electron");
+const { autoUpdater } = require("electron-updater");
+const path = require("path");
+const os = require("os");
+const fs = require("fs");
+const http = require("http");
+const robot = require("robotjs");
+const child_process = require("child_process");
+const loudness = require("loudness");
 
+const userDataPath = app.getPath("userData");
+const codeFilePath = path.join(userDataPath, "code.txt");
+const actionsFilePath = path.join(userDataPath, "actions.json");
+const pageLayoutFilePath = path.join(userDataPath, "pageLayout.json");
 
-
-const userDataPath = app.getPath('userData');
-const codeFilePath = path.join(userDataPath, 'code.txt');
-const actionsFilePath = path.join(userDataPath, 'actions.json');
-
+let tray = null;
+let win = null;
+let isQuitting = false; // Flag to indicate if the app is quitting
 
 function createWindow() {
-    // Create the browser window.
-    const win = new BrowserWindow({
-        width: 250,
-        height: 350,
-        webPreferences: {
-            preload: path.join(__dirname, 'preload.js'),
-            nodeIntegration: false,  // Ensure this is set to false
-            contextIsolation: true   // It's good to have this set to true when using contextBridge
-        }
+  win = new BrowserWindow({
+    width: 250,
+    height: 350,
+    webPreferences: {
+      preload: path.join(__dirname, "preload.js"),
+      nodeIntegration: false,
+      contextIsolation: true,
+    },
+  });
 
-    })
-    getActions();
-    win.loadFile('index.html')
-}
+  win
+    .loadFile("index.html")
+    .catch((err) => console.error("Failed to load index.html:", err));
 
-ipcMain.on('get-local-ip', (event) => {
-    const interfaces = os.networkInterfaces();
-    for (const name of Object.keys(interfaces)) {
-        for (const iface of interfaces[name]) {
-            if (iface.family === 'IPv4' && !iface.internal) {
-                event.returnValue = iface.address;
-                return;
-            }
-        }
+  win.on("close", (event) => {
+    if (!app.isQuitting) {
+      event.preventDefault();
+      win.hide();
     }
-    event.returnValue = '127.0.0.1';
-});
-
-
-
-ipcMain.on('get-unique-code', (event) => {
-    fs.readFile(codeFilePath, 'utf8', function (err, data) {
-        if (err) {
-            // Generate a unique 4 digit code
-            uniqueCode = Math.floor(Math.random() * 9000) + 1000;
-            uniqueCode += ""
-            fs.writeFile(codeFilePath, uniqueCode, (err) => {
-                if (err) throw err;
-                console.log('Code saved to uniqueCode.txt');
-            }
-            );
-            event.returnValue = uniqueCode;
-        }
-        event.returnValue = data;
-    });
-});
+  });
+}
 
 app.whenReady().then(() => {
-    createWindow()
-})
+  createWindow();
+  tray = new Tray("Gizmo Face.png");
+  tray.setToolTip("This is my application.");
+  const contextMenu = Menu.buildFromTemplate([
+    {
+      label: "Quit",
+      click: () => {
+        isQuitting = true; // Set the quitting flag
+        console.log("QUITTING APP");
+        app.quit();
+      },
+    },
+  ]);
 
+  tray.on("right-click", () => {
+    tray.popUpContextMenu(contextMenu);
+  });
 
-// Check if there is a 4 digit code in code.txt
-// If there is, use that code
-// If there isn't, generate a new code and save it to code.txt
+  tray.on("click", () => {
+    if (win) {
+      win.isVisible() ? win.hide() : win.show();
+    } else {
+      createWindow();
+    }
+  });
+  if (process.platform === "darwin") {
+    // Check if the platform is macOS
+    app.dock.hide(); // Hide the dock icon
+  }
+
+  autoUpdater.checkForUpdatesAndNotify();
+});
+
+autoUpdater.on("update-available", () => {
+  // Notify your users that an update is available
+});
+
+autoUpdater.on("update-downloaded", (event, releaseNotes, releaseName) => {
+  autoUpdater.quitAndInstall();
+});
+
+app.on("window-all-closed", () => {
+  if (process.platform !== "darwin" || isQuitting) {
+    app.quit();
+  }
+});
+const trayIconPath = path.join(__dirname, "Gizmo Face.png");
+
+app.on("activate", () => {
+  if (BrowserWindow.getAllWindows().length === 0) {
+    createWindow();
+  }
+});
+
 var uniqueCode;
 
-
-const pageColCount = 3;
-const pageRowCount = 5;
-
-fs.readFile(codeFilePath, 'utf8', function (err, data) {
-    if (err) {
-        // if there is no code.txt, generate a new code and save it
-        uniqueCode = Math.floor(Math.random() * 9000) + 1000;
-        uniqueCode += ""
-        fs.writeFile(codeFilePath, uniqueCode, (err) => {
-            if (err) throw err;
-            console.log('Code saved to code.txt');
-        });
-        console.log("Your code is " + uniqueCode)
-    } else {
-        // if there is a code.txt, use that code
-        console.log("Your code is " + data)
-        uniqueCode = data;
-    }
+function generateUniqueCode() {
+  uniqueCode = Math.floor(Math.random() * 9000) + 1000;
+  return uniqueCode.toString();
 }
-);
+
+function readOrCreateUniqueCode() {
+  fs.readFile(codeFilePath, "utf8", (err, data) => {
+    if (err) {
+      const newCode = generateUniqueCode();
+      fs.writeFile(codeFilePath, newCode, (err) => {
+        if (err) {
+          console.error("Error saving new code:", err);
+        } else {
+          console.log("New code generated and saved:", newCode);
+        }
+      });
+    } else {
+      console.log("Using existing code:", data);
+      uniqueCode = data;
+    }
+  });
+}
+
+readOrCreateUniqueCode();
 
 class Page {
-    // Create a new 2d array of nulls with the size of the page grid
-    actions = new Array(pageRowCount).fill(null).map(() => new Array(pageColCount).fill(null));
+  constructor(actionIDs = []) {
+    this.actions = actionIDs;
+  }
+
+  toJSON() {
+    return { actions: this.actions };
+  }
 }
 
 class Action {
-    name;
-    type;
-    key;
-    modifiers;
-    icon;
-
-
-    constructor(jsonString) {
-        var actionData;
-        console.log("PARSING " + jsonString)
-        try {
-            actionData = JSON.parse(jsonString);
-        } catch (error) {
-            console.log(error)
-            console.log(jsonString)
-            return;
-        }
-
-        var actionName = actionData.name ? actionData.name : "New Action"
-
-        var actionType = actionData.type ? actionData.type : "key"
-
-        var actionKey = actionData.key ? actionData.key : "a"
-
-        var actionModifiers = actionData.modifiers ? actionData.modifiers : []
-
-        var actionIcon = actionData.icon ? actionData.icon : "keyboard"
-
-        var actionColor = actionData.color ? actionData.color : "#FFFFFF"
-
-        var row = actionData.row ? actionData.row : 0
-
-        var col = actionData.col ? actionData.col : 0
-
-        var page = actionData.page ? actionData.page : 0
-
-        var uid = actionData.uid ? actionData.uid : "0"
-
-        var siriShortcut = actionData.siriShortcut ? actionData.siriShortcut : ""
-
-        var text = actionData.text ? actionData.text : ""
-
-        console.log('name visible ' + actionData.nameVisible)
-        var nameVisible = actionData.nameVisible != null ? actionData.nameVisible : true
-
-
-        this.name = actionName;
-        this.type = actionType;
-        this.key = actionKey;
-        this.modifiers = actionModifiers;
-        this.icon = actionIcon;
-        this.color = actionColor;
-        this.uid = uid;
-        this.nameVisible = nameVisible;
-        this.siriShortcut = siriShortcut;
-        this.text = text;
-
-        return this
-
-
-    }
+  constructor(actionData) {
+    this.name = actionData.name || "New Action";
+    this.type = actionData.type || "key";
+    this.key = actionData.key || "";
+    this.ccKey = actionData.ccKey || "";
+    this.modifiers = actionData.modifiers || {};
+    this.ccModifiers = actionData.ccModifiers || {};
+    this.icon = actionData.icon || "keyboard";
+    this.color = actionData.color || "#FFFFFF";
+    this.uid = actionData.uid || "0";
+    this.nameVisible =
+      actionData.nameVisible !== null ? actionData.nameVisible : true;
+    this.siriShortcut = actionData.siriShortcut || "";
+    this.ccSiriShortcut = actionData.ccSiriShortcut || "";
+    this.text = actionData.text || "";
+    this.textColor = actionData.textColor || "#FFFFFF";
+    this.foregroundColor = actionData.foregroundColor || "#FFFFFF";
+    this.displayType = actionData.displayType || "button";
+    this.iconVisible =
+      actionData.iconVisible !== null ? actionData.iconVisible : true;
+    this.systemCommand = actionData.systemCommand || "";
+    this.ccSystemCommand = actionData.ccSystemCommand || "";
+    this.knobSensitivity = actionData.knobSensitivity || 50;
+  }
 }
 
+let pageLayouts = [];
+let actions = {};
 
-class Group {
-    constructor(jsonString) {
-        var groupData;
-        console.log("PARSING " + jsonString)
-        try {
-            groupData = JSON.parse(jsonString);
-        } catch (error) {
-            console.log(error)
-            console.log(jsonString)
-            return;
+ipcMain.on("get-local-ip", (event) => {
+  try {
+    const interfaces = os.networkInterfaces();
+    for (const name of Object.keys(interfaces)) {
+      for (const iface of interfaces[name]) {
+        if (iface.family === "IPv4" && !iface.internal) {
+          event.returnValue = iface.address;
+          return;
         }
-
-        var name = groupData.name ? groupData.name : "New Group"
-        var uid = groupData.uid ? groupData.uid : "0"
-        var row = groupData.row ? groupData.row : 0
-        var col = groupData.col ? groupData.col : 0
-        var page = groupData.page ? groupData.page : 0
-
-
-
-        this.name = name;
-        this.actions = [];
-        this.uid = uid;
-        this.row = row;
-        this.col = col;
-        this.page = page;
+      }
     }
+    event.returnValue = "127.0.0.1";
+  } catch (error) {
+    console.error("Error getting local IP:", error);
+    event.returnValue = "Error";
+  }
+});
+
+ipcMain.on("get-unique-code", (event) => {
+  fs.readFile(codeFilePath, "utf8", (err, data) => {
+    if (err) {
+      const uniqueCode = generateUniqueCode();
+      fs.writeFile(codeFilePath, uniqueCode, (err) => {
+        if (err) {
+          console.error("Error writing unique code:", err);
+          event.returnValue = "Error";
+        } else {
+          console.log("Unique code generated and saved:", uniqueCode);
+          event.returnValue = uniqueCode;
+        }
+      });
+    } else {
+      event.returnValue = data;
+    }
+  });
+});
+
+function setupServer() {
+  const server = http.createServer(handleRequest);
+
+  server.listen(2326, () => {
+    console.log("Server listening on port 2326");
+  });
+
+  server.on("error", (err) => {
+    console.error("Server encountered an error:", err);
+  });
 }
 
+function handleRequest(req, res) {
+  switch (req.url) {
+    case "/getDeviceInfo":
+      handleGetDeviceInfo(req, res);
+      break;
+    case "/establishConnection":
+      handleEstablishConnection(req, res);
+      break;
+    case "/createAction":
+      handleCreateAction(req, res);
+      break;
+    case "/getActions":
+      handleGetActions(req, res);
+      break;
+    case "/runAction":
+      handleRunAction(req, res);
+      break;
+    case "/swapActions":
+      handleSwapActions(req, res);
+      break;
+    case "/updateAction":
+      handleUpdateAction(req, res);
+      break;
+    case "/getSiriShortcuts":
+      handleGetSiriShortcuts(req, res);
+      break;
+    case "/getSystemCommands":
+      handleGetSystemCommands(req, res);
+      break;
+    case "/deleteAction":
+      handleDeleteAction(req, res);
+      break;
+    default:
+      res.writeHead(404, { "Content-Type": "text/plain" });
+      res.end("Not Found");
+      console.log("Not Found:", req.url);
+  }
+}
 
-let actionPages = [];
+function handleDeleteAction(req, res) {
+  const code = req.headers["code"];
+  if (code !== uniqueCode.toString()) {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+    return;
+  }
 
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk.toString();
+  });
 
-const server = http.createServer((req, res) => {
-    if (req.url === '/getDeviceInfo') {
-        const computerName = os.hostname();
-        res.writeHead(200, { 'Content-Type': 'text/plain' });
-        res.end(computerName);
+  req.on("end", () => {
+    try {
+      const actionID = JSON.parse(body).actionID;
+      deleteAction(actionID);
+
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Action Deleted");
+    } catch (error) {
+      console.error("Error handling /deleteAction:", error);
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Bad Request");
     }
-    else if (req.url === '/establishConnection') {
-        // check if the code is correct
-        const code = req.headers['code'];
+  });
+}
 
-        if (code === uniqueCode.toString()) {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            // send wether or not the computer is a mac as a true or false string
-            res.end(os.platform() === "darwin" ? "true" : "false");
-        }
-        else {
-            res.writeHead(401, { 'Content-Type': 'text/plain' });
-            res.end('Unauthorized');
-        }
+function handleGetSiriShortcuts(req, res) {
+  const code = req.headers["code"];
+  if (code === uniqueCode.toString()) {
+    try {
+      const shortcuts = child_process.execSync(`shortcuts list`).toString();
+      // Put the shortcuts in an array
+      // The first element is the header, so start at index 1
+      const firstShortcutIndex = shortcuts.indexOf("Shortcut Name");
+      const shortcutsArray = shortcuts
+        .substring(firstShortcutIndex)
+        .split("\n");
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(shortcutsArray));
+    } catch (error) {
+      console.error("Error handling /getSiriShortcuts:", error);
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("Internal Server Error");
     }
-    else if (req.url === '/createAction') {
-        const code = req.headers['code'];
+  } else {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+  }
+}
 
-        if (code === uniqueCode.toString()) {
-            // Get actionData from the request body
-            var body = '';
-            req.on('data', function (data) {
-                body += data;
-            });
-
-            req.on('end', function () {
-                console.log("ACTION  " + body)
-                action = new Action(body)
-                // Add the button to the end of the page specified, if no slots are available, go to the next page, if no pages are available, create a new page
-                if (actionPages.length === 0) {
-                    actionPages.push(new Page());
-                }
-                var page = actionPages[page] ? actionPages[page] : actionPages[actionPages.length - 1];
-                var row = 0;
-                var col = 0;
-                var pageFound = false;
-                for (var i = 0; i < actionPages.length; i++) {
-                    for (var j = 0; j < actionPages[i].actions.length; j++) {
-                        for (var k = 0; k < actionPages[i].actions[j].length; k++) {
-                            if (actionPages[i].actions[j][k] === null) {
-                                page = actionPages[i];
-                                row = j;
-                                col = k;
-                                pageFound = true;
-                                break;
-                            }
-                        }
-                        if (pageFound) {
-                            break;
-                        }
-                    }
-                    if (pageFound) {
-                        break;
-                    }
-                }
-                page.actions[row][col] = action;
-                setActions(actionPages);
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-            });
-        }
-        else {
-            res.writeHead(401, { 'Content-Type': 'text/plain' });
-            res.end('Unauthorized');
-        }
+function handleGetSystemCommands(req, res) {
+  const code = req.headers["code"];
+  if (code === uniqueCode.toString()) {
+    try {
+      const systemCommands = [
+        "Volume Increase",
+        "Volume Decrease",
+        "Toggle Mute",
+        "Play / Pause",
+        "Next Track",
+        "Previous Track",
+        "Increase Brightness",
+        "Decrease Brightness",
+      ];
+      res.writeHead(200, { "Content-Type": "application/json" });
+      res.end(JSON.stringify(systemCommands));
+    } catch (error) {
+      console.error("Error handling /getSiriShortcuts:", error);
+      res.writeHead(500, { "Content-Type": "text/plain" });
+      res.end("Internal Server Error");
     }
-    else if (req.url === '/getActions') {
-        const code = req.headers['code'];
-        console.log("Transmitting actions to client ... ")
+  } else {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+  }
+}
 
-        if (code === uniqueCode.toString()) {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end(JSON.stringify(actionPages));
-        }
-        else {
-            res.writeHead(401, { 'Content-Type': 'text/plain' });
-            res.end('Unauthorized');
-        }
+function handleUpdateAction(req, res) {
+  const code = req.headers["code"];
+  if (code !== uniqueCode.toString()) {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+    return;
+  }
+
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk.toString();
+  });
+
+  req.on("end", () => {
+    try {
+      const actionData = JSON.parse(body);
+      const action = new Action(actionData);
+
+      actions[action.uid] = action;
+      setActions();
+
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Action Updated");
+    } catch (error) {
+      console.error("Error handling /updateAction:", error);
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Bad Request");
     }
-    else if (req.url === '/createGroup') {
-        const code = req.headers['code'];
+  });
+}
 
-        if (code === uniqueCode.toString()) {
-            // Get actionData from the request body
-            var body = '';
-            req.on('data', function (data) {
-                body += data;
-            });
+function handleGetDeviceInfo(req, res) {
+  try {
+    const computerName = os.hostname();
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(computerName);
+  } catch (error) {
+    console.error("Error handling /getDeviceInfo:", error);
+    res.writeHead(500, { "Content-Type": "text/plain" });
+    res.end("Internal Server Error");
+  }
+}
 
-            req.on('end', function () {
-                console.log("GROUP  " + body)
-                group = new Group(body)
+function handleSwapActions(req, res) {
+  const code = req.headers["code"];
+  if (code !== uniqueCode.toString()) {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+    return;
+  }
 
-                page.actions[row][col] = group;
-                setGroups(actionPages);
-                res.writeHead(200, { 'Content-Type': 'text/plain' });
-            });
-        }
-        else {
-            res.writeHead(401, { 'Content-Type': 'text/plain' });
-            res.end('Unauthorized');
-        }
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk.toString();
+  });
+
+  req.on("end", () => {
+    try {
+      swapData = JSON.parse(body);
+      var sourceIndex = getFirstIndexOfID(swapData.source, 0);
+
+      var targetIndex = swapData.targetIndex;
+      var targetPage = swapData.targetPage;
+      // If there the page length does not include the target index, add nulls until it does
+
+      while (pageLayouts[swapData.targetPage].actions.length <= targetIndex) {
+        pageLayouts[swapData.targetPage].actions.push(null);
+      }
+
+      // Swap the actions at the indexes
+      var temp = pageLayouts[0].actions[targetIndex];
+      pageLayouts[targetPage].actions[targetIndex] =
+        pageLayouts[0].actions[sourceIndex];
+      pageLayouts[targetPage].actions[sourceIndex] = temp;
+      setPageLayouts();
+
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Action Created");
+    } catch (error) {
+      console.error("Error handling /swapAction:", error);
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Bad Request");
     }
-    else if (req.url === '/runAction') {
-        const code = req.headers['code'];
+  });
+}
 
-        if (code === uniqueCode.toString()) {
-            // Get actionData from the request body
-            var body = '';
-            req.on('data', function (data) {
-                body += data;
-            });
+function handleEstablishConnection(req, res) {
+  const code = req.headers["code"];
+  if (code === uniqueCode.toString()) {
+    res.writeHead(200, { "Content-Type": "text/plain" });
+    res.end(os.platform() === "darwin" ? "true" : "false");
+  } else {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+  }
+}
 
-            req.on('end', function () {
-                console.log("ACTION  " + body)
-                try {
-                    var actionID = JSON.parse(body);
-                    runAction(actionID);
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
-                    res.end("Success");
+function handleCreateAction(req, res) {
+  const code = req.headers["code"];
+  if (code !== uniqueCode.toString()) {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+    return;
+  }
 
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk.toString();
+  });
 
-                } catch (error) {
-                    console.log(error)
-                    console.log(body)
-                    res.writeHead(400, { 'Content-Type': 'text/plain' });
-                    res.end("Bad Request");
-                }
-            })
+  req.on("end", () => {
+    try {
+      const actionData = JSON.parse(body);
+      const action = new Action(actionData);
+      // Find the first empty slot in the action's page
+      let page = pageLayouts[action.page ?? 0];
+      if (!page) {
+        page = new Page();
+        pageLayouts[action.page ?? 0] = page;
+      }
+      let spaceFound = false;
+      for (let i = 0; i < page.actions.length; i++) {
+        if (!page.actions[i]) {
+          page.actions[i] = action.uid;
+          spaceFound = true;
+          break;
         }
-        else {
-            res.writeHead(401, { 'Content-Type': 'text/plain' });
-            res.end('Unauthorized');
-        }
+      }
+      if (!spaceFound) {
+        page.actions.push(action.uid);
+      }
+
+      actions[action.uid] = action;
+      setActions();
+      setPageLayouts();
+
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Action Created");
+    } catch (error) {
+      console.error("Error handling /createAction:", error);
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Bad Request");
     }
-    else if (req.url === '/deleteAction') {
-        console.log("HERE")
-        const code = req.headers['code'];
+  });
+}
 
-        if (code === uniqueCode.toString()) {
-            // Get actionData from the request body
-            var body = '';
-            req.on('data', function (data) {
-                body += data;
-            });
+function handleGetActions(req, res) {
+  const code = req.headers["code"];
+  if (code === uniqueCode.toString()) {
+    // Map each page to an object with an 'actions' property
 
-            req.on('end', function () {
-                console.log("ACTION  " + body)
-                try {
-                    var actionID = JSON.parse(body);
-                    actionID = actionID.actionID;
-                    console.log("DELETING ACTION " + actionID)
-                    deleteAction(actionID);
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
-                    res.end("Success");
-                }
-                catch (error) {
-                    console.log(error)
-                    console.log(body)
-                }
-            })
-        }
+    returnData = {
+      actions: actions,
+      layout: pageLayouts,
+    };
+    console.log(returnData);
+    res.writeHead(200, { "Content-Type": "application/json" });
+    res.end(JSON.stringify(returnData));
+  } else {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+  }
+}
 
-        else {
-            res.writeHead(401, { 'Content-Type': 'text/plain' });
-            res.end('Unauthorized');
-        }
+function handleRunAction(req, res) {
+  const code = req.headers["code"];
+  if (code !== uniqueCode.toString()) {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+    return;
+  }
+
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk.toString();
+  });
+
+  req.on("end", () => {
+    try {
+      temp = JSON.parse(body);
+      var actionID = temp.actionID;
+      var direction = temp.direction;
+      console.log("Running action:", actionID);
+      runAction(actionID, direction);
+
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Action Created");
+    } catch (error) {
+      console.error("Error handling /runAction:", error);
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Bad Request");
     }
-    else if (req.url === '/swapAction') {
-        const code = req.headers['code'];
+  });
+}
 
-        if (code === uniqueCode.toString()) {
-            // Get swap data from the request body
-            console.log("SWAPPING ACTIONS")
-            let body = '';
-            req.on('data', function (data) {
-                body += data;
-            });
-
-            req.on('end', function () {
-                try {
-                    const swapData = JSON.parse(body);
-                    const {
-                        source,
-                        targetPage, targetRow, targetCol
-                    } = swapData;
-
-                    // Perform the action swap
-                    swapActions(
-                        source, targetPage, targetRow, targetCol
-                    );
-                    console.log("SWAP SUCCESSFUL")
-
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
-                    res.end("Swap Successful");
-                } catch (error) {
-                    console.error(error);
-                    res.writeHead(400, { 'Content-Type': 'text/plain' });
-                    res.end("Bad Request");
-                }
-            });
-        } else {
-            res.writeHead(401, { 'Content-Type': 'text/plain' });
-            res.end('Unauthorized');
-        }
+setupServer();
+function setActions() {
+  fs.writeFile(actionsFilePath, JSON.stringify(actions), (err) => {
+    if (err) {
+      console.error("Error saving to actions.json:", err);
+    } else {
+      console.log("Actions saved to actions.json");
     }
-    else if (req.url === '/updateAction') {
-        const code = req.headers['code'];
+  });
+}
 
-        if (code === uniqueCode.toString()) {
-            // Get swap data from the request body
-            let body = '';
-            req.on('data', function (data) {
-                body += data;
-            });
-
-            req.on('end', function () {
-                try {
-                    console.log("UPDATING ACTION WITH THIS DATA ")
-                    console.log(body)
-                    updateAction(new Action(body));
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
-                    res.end("Swap Successful");
-                } catch (error) {
-                    console.error(error);
-                    res.writeHead(400, { 'Content-Type': 'text/plain' });
-                    res.end("Bad Request");
-                }
-            });
-        } else {
-            res.writeHead(401, { 'Content-Type': 'text/plain' });
-            res.end('Unauthorized');
-        }
+function setPageLayouts() {
+  fs.writeFile(pageLayoutFilePath, JSON.stringify(pageLayouts), (err) => {
+    if (err) {
+      console.error("Error saving to pageLayout.json:", err);
+    } else {
+      console.log("Page layouts saved to pageLayout.json");
     }
-    else if (req.url === '/getSiriShortcuts') {
-        const code = req.headers['code'];
+  });
+}
 
-        if (code === uniqueCode.toString()) {
-            // Get swap data from the request body
-            let body = '';
-            req.on('data', function (data) {
-                body += data;
-            });
-
-            req.on('end', function () {
-                try {
-                    console.log("Getting siri shortcuts")
-                    var shortcuts = getSiriShortcutsOnMachine();
-                    res.writeHead(200, { 'Content-Type': 'text/plain' });
-                    res.end(JSON.stringify(shortcuts));
-                } catch (error) {
-                    console.error(error);
-                    res.writeHead(400, { 'Content-Type': 'text/plain' });
-                    res.end("Bad Request");
-                }
-            });
-        } else {
-            res.writeHead(401, { 'Content-Type': 'text/plain' });
-            res.end('Unauthorized');
-        }
-    }
-    else {
-        res.writeHead(404, { 'Content-Type': 'text/plain' });
-        res.end('Not Found');
-        console.log("NOT FOUND " + req.url)
-    }
-});
-
-server.listen(2326, () => {
-    console.log('Server listening on port 2326');
-});
-
-
-// Gets actions from action.json
 function getActions() {
-    fs.readFile(actionsFilePath, 'utf8', function (err, data) {
-        if (err) {
-            console.log('Error reading actions.json:', err);
-            return;
-        }
-
-        if (!data) {
-            console.log('actions.json is empty or not properly formatted.');
-            return;
-        }
-
-        try {
-            actionPages = JSON.parse(data);
-            // turn the json into Action objects 
-
-            for (var i = 0; i < actionPages.length; i++) {
-                for (var j = 0; j < actionPages[i].actions.length; j++) {
-                    for (var k = 0; k < actionPages[i].actions[j].length; k++) {
-                        if (actionPages[i].actions[j][k] === null)
-                            continue;
-                        actionPages[i].actions[j][k] = new Action(JSON.stringify(actionPages[i].actions[j][k]));
-                    }
-                }
-            }
-        } catch (parseErr) {
-            console.log('Error parsing actions.json:', parseErr);
-        }
-    });
+  fs.readFile(actionsFilePath, "utf8", (err, data) => {
+    if (err) {
+      console.error("Error reading actions.json:", err);
+      return;
+    }
+    try {
+      actions = JSON.parse(data);
+    } catch (parseErr) {
+      console.error("Error parsing actions.json:", parseErr);
+    }
+  });
 }
 
-function setActions(newActions) {
-    fs.writeFile(actionsFilePath, JSON.stringify(newActions), (err) => {
-        if (err) {
-            console.error('Error saving to actions.json:', err);
-            return;
-        }
-        console.log('Actions saved to actions.json');
-    });
+function getPageLayouts() {
+  fs.readFile(pageLayoutFilePath, "utf8", (err, data) => {
+    if (err) {
+      console.error("Error reading pageLayout.json:", err);
+      return;
+    }
+    try {
+      pageLayouts = JSON.parse(data);
+    } catch (parseErr) {
+      console.error("Error parsing pageLayout.json:", parseErr);
+    }
+  });
 }
-
-
-
-
-
-
-function updateAction(newActionData) {
-    // Find the action witth the matching ID and replace it with the new action data
-    var actionFound = false;
-    for (var i = 0; i < actionPages.length; i++) {
-        for (var j = 0; j < actionPages[i].actions.length; j++) {
-            for (var k = 0; k < actionPages[i].actions[j].length; k++) {
-                if (actionPages[i].actions[j][k] === null)
-                    continue;
-                if (actionPages[i].actions[j][k].uid === newActionData.uid) {
-                    actionFound = true;
-                    action = actionPages[i].actions[j][k];
-                    actionPages[i].actions[j][k] = newActionData;
-                    break;
-                }
-            }
-            if (actionFound)
-                break;
-        }
-        if (actionFound)
-            break;
-    }
-
-    // now save 
-    console.log("HERE")
-    setActions(actionPages);
-    console.log("THERE")
-}
-
-
-
-
-function searchForAction(actionID) {
-    // run through all actions and find the one with the matching ID
-    var actionFound = false;
-    var action;
-    for (var i = 0; i < actionPages.length; i++) {
-        for (var j = 0; j < actionPages[i].actions.length; j++) {
-            for (var k = 0; k < actionPages[i].actions[j].length; k++) {
-                if (actionPages[i].actions[j][k] === null)
-                    continue;
-                if (actionPages[i].actions[j][k].uid === actionID) {
-                    actionFound = true;
-                    action = actionPages[i].actions[j][k];
-                    break;
-                }
-            }
-            if (actionFound)
-                break;
-        }
-        if (actionFound)
-            break;
-    }
-    if (!actionFound) {
-        console.log("Action " + actionID + " not found")
-        return;
-    }
-    return action;
-}
-
-
-function searchForLocationOfAction(actionID) {
-    // run through all actions and find the one with the matching ID
-    var actionFound = false;
-    var action;
-    var page;
-    var row;
-    var col;
-    for (var i = 0; i < actionPages.length; i++) {
-        for (var j = 0; j < actionPages[i].actions.length; j++) {
-            for (var k = 0; k < actionPages[i].actions[j].length; k++) {
-                if (actionPages[i].actions[j][k] === null)
-                    continue;
-                if (actionPages[i].actions[j][k].uid === actionID) {
-                    actionFound = true;
-                    action = actionPages[i].actions[j][k];
-                    page = i;
-                    row = j;
-                    col = k;
-                    break;
-
-                }
-            }
-            if (actionFound)
-                break;
-        }
-        if (actionFound)
-            break;
-    }
-    if (!actionFound) {
-        console.log("Action " + actionID + " not found")
-        return;
-    }
-    return { page: page, row: row, col: col };
-}
-
-function runAction(actionID) {
-    actionID = actionID.actionID;
-    console.log("RUNNING ACTION " + actionID)
-    var action = searchForAction(actionID);
-    if (!action)
-        return;
-
-    console.log(action)
-    if (action.type === "shortcut") {
-        // ACTUALLY RUN THE SHORTCUT
-        console.log("RUNNING SHORTCUT")
-        var key = action.key.toLowerCase();
-        var modifiers = [];
-
-        // Convert the modifiers object to an array format that robot.js expects
-        for (var modifier in action.modifiers) {
-            if (action.modifiers[modifier]) {
-                modifiers.push(modifier.toLowerCase()); // robot.js expects lowercase modifier names
-            }
-        }
-        console.log(key)
-        console.log(modifiers)
-
-        // Execute the shortcut
-        robot.keyTap(key, modifiers);
-    }
-    else if (action.type === "siriShortcut") {
-        console.log("RUNNING SIRI SHORTCUT \"" + action.siriShortcut + "\"")
-        child_process.execSync("shortcuts run \"" + action.siriShortcut + "\"");
-    }
-    else if (action.type == "text") {
-        console.log("TYPING TEXT \"" + action.text + "\"")
-        robot.typeString(action.text);
-    }
-
-
-}
-
 
 function deleteAction(actionID) {
-    console.log("Attempting to delete action ... " + actionID)
-    // run through all actions and find the one with the matching ID
-    var actionFound = false;
-    var action;
-    for (var i = 0; i < actionPages.length; i++) {
-        for (var j = 0; j < actionPages[i].actions.length; j++) {
-            for (var k = 0; k < actionPages[i].actions[j].length; k++) {
-                if (actionPages[i].actions[j][k] === null)
-                    continue;
-                if (actionPages[i].actions[j][k].uid === actionID) {
-                    actionFound = true;
-                    action = actionPages[i].actions[j][k];
-                    break;
-                }
-            }
-            if (actionFound)
-                break;
+  for (let i = 0; i < pageLayouts.length; i++) {
+    let page = pageLayouts[i];
+    for (let j = 0; j < page.actions.length; j++) {
+      if (page.actions[j] === actionID) {
+        page.actions[j] = null;
+      }
+    }
+  }
+  delete actions[actionID];
+  setActions();
+  setPageLayouts();
+
+  console.error("Action not found for deletion:", actionID);
+}
+
+function runAction(actionID, direction) {
+  action = actions[actionID];
+  switch (action.type) {
+    case "shortcut":
+      if (direction == "clockwise") {
+        let modifiersArray = Object.keys(action.modifiers)
+          .filter((key) => action.modifiers[key])
+          .map((key) => key.toLowerCase()); // Convert to lowercase
+        robot.keyTap(action.key.toLowerCase(), modifiersArray);
+      } else {
+        let modifiersArray = Object.keys(action.ccModifiers)
+          .filter((key) => action.ccModifiers[key])
+          .map((key) => key.toLowerCase()); // Convert to lowercase)
+        robot.keyTap(action.ccKey.toLowerCase(), modifiersArray);
+      }
+      break;
+    case "siriShortcut":
+      console.log("Running siri shortcut with command:", action.siriShortcut);
+      try {
+        if (direction == "clockwise") {
+          child_process.execSync(`shortcuts run "${action.siriShortcut}"`);
+        } else {
+          child_process.execSync(`shortcuts run "${action.ccSiriShortcut}"`);
         }
-        if (actionFound)
-            break;
-    }
-    if (!actionFound) {
-        console.log("Action " + actionID + " not found")
-        return;
-    }
-    console.log(action)
-    actionPages[i].actions[j][k] = null;
-    setActions(actionPages);
-    return;
-
+      } catch (error) {
+        console.error("Error running siri shortcut:", error);
+      }
+      break;
+    case "text":
+      robot.typeString(action.text);
+      break;
+    case "systemCommand":
+      console.log("Running system command %s", action.systemCommand);
+      if (direction == "clockwise") {
+        runSystemCommand(action.systemCommand);
+      } else {
+        runSystemCommand(action.ccSystemCommand);
+      }
+      break;
+    // Add additional action types here
+  }
+  return;
 }
 
-function swapActions(source, targetPage, targetRow, targetCol) {
-    // Check for out of bounds
-    if (!actionPages[targetPage] || !actionPages[targetPage].actions[targetRow]) {
-        return -1;
-    }
-
-    // Get the source action
-    sourceLocation = searchForLocationOfAction(source);
-    if (!sourceLocation) {
-        return -1;
-    }
-
-    sourcePage = sourceLocation.page;
-    sourceRow = sourceLocation.row;
-    sourceCol = sourceLocation.col;
-
-    // Do the swap
-    const temp = actionPages[sourcePage].actions[sourceRow][sourceCol];
-    actionPages[sourcePage].actions[sourceRow][sourceCol] = actionPages[targetPage].actions[targetRow][targetCol];
-    actionPages[targetPage].actions[targetRow][targetCol] = temp;
-
-    // Persist the swapped actions
-    setActions(actionPages);
-    return 1
+function runSystemCommand(command) {
+  switch (command) {
+    case "Volume Increase":
+      robot.keyTap("audio_vol_up");
+      console.log(`Increased volume by 10%`);
+      break;
+    case "Volume Decrease":
+      robot.keyTap("audio_vol_down");
+      console.log(`Volume Decreased`);
+      break;
+    case "Toggle Mute":
+      loudness.getMuted().then((muted) => {
+        loudness.setMuted(!muted);
+        console.log(`Mute toggled`);
+      });
+      console.log("Toggled Mute");
+      break;
+    case "Play / Pause":
+      robot.keyTap("audio_play");
+      console.log("Play / Pause");
+      break;
+    case "Next Track":
+      robot.keyTap("audio_next");
+      console.log("Next Track");
+      break;
+    case "Previous Track":
+      robot.keyTap("audio_prev");
+      console.log("Previous Track");
+      break;
+    case "Increase Brightness":
+      robot.keyTap("brightness_up");
+      console.log("Increase Brightness");
+      break;
+    case "Decrease Brightness":
+      robot.keyTap("brightness_down");
+      console.log("Decrease Brightness");
+      break;
+    default:
+      console.log("Unknown system command: ", command);
+  }
 }
 
-function getSiriShortcutsOnMachine() {
-    var shortcuts = []
-    child_process.execSync("shortcuts list").toString().split("\n").forEach(function (line) {
-        if (line === "")
-            return;
-        shortcuts.push(line)
-    });
-    return shortcuts
+async function changeVolume(changeBy) {
+  try {
+    // Get current volume
+    const currentVolume = await loudness.getVolume();
+
+    // Calculate new volume, ensuring it doesn't exceed 100
+    let newVolume = currentVolume + changeBy;
+    newVolume = Math.min(newVolume, 100);
+
+    // Set the new volume
+    await loudness.setVolume(newVolume);
+    console.log(`Volume increased to ${newVolume}%`);
+  } catch (error) {
+    console.error(`Error: ${error.message}`);
+  }
 }
 
-getSiriShortcutsOnMachine()
+function getFirstIndexOfID(id, pageNum) {
+  for (let i = 0; i < pageLayouts[pageNum].actions.length; i++) {
+    if (pageLayouts[pageNum].actions[i] === id) {
+      return i;
+    }
+  }
+  return -1;
+}
+
+getActions();
+getPageLayouts();

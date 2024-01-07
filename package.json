@@ -24,6 +24,13 @@
     "directories": {
       "output": "build"
     },
+    "publish": [
+      {
+        "provider": "github",
+        "owner": "Quickzand",
+        "repo": "GizmoDesktop"
+      }
+    ],
     "files": [
       "**/*"
     ],
@@ -56,6 +63,8 @@
     "qrcode": "^1.5.3"
   },
   "dependencies": {
+    "electron-updater": "^6.1.7",
+    "loudness": "^0.4.2",
     "node-abi": "^3.50.0",
     "qrcode-generator": "^1.4.4",
     "robotjs": "^0.6.0"
