@@ -1,3 +1,5 @@
+const VERSION = "1.0.0";
+
 const { app, BrowserWindow, Tray, Menu, ipcMain } = require("electron");
 const { autoUpdater } = require("electron-updater");
 const path = require("path");
@@ -5,6 +7,7 @@ const os = require("os");
 const fs = require("fs");
 const http = require("http");
 const robot = require("robotjs");
+const bonjour = require("bonjour")();
 const child_process = require("child_process");
 const loudness = require("loudness");
 
@@ -95,6 +98,12 @@ app.on("activate", () => {
   }
 });
 
+app.on("before-quit", () => {
+  bonjour.unpublishAll(() => {
+    bonjour.destroy();
+  });
+});
+
 var uniqueCode;
 
 function generateUniqueCode() {
@@ -123,6 +132,8 @@ function readOrCreateUniqueCode() {
 readOrCreateUniqueCode();
 
 class Page {
+  static maxColCount = 4;
+  static maxRowCount = 6;
   constructor(actionIDs = []) {
     this.actions = actionIDs;
   }
@@ -156,6 +167,9 @@ class Action {
     this.systemCommand = actionData.systemCommand || "";
     this.ccSystemCommand = actionData.ccSystemCommand || "";
     this.knobSensitivity = actionData.knobSensitivity || 50;
+    this.textOpacity = actionData.textOpacity || 1;
+    this.iconOpacity = actionData.iconOpacity || 1;
+    this.backgroundOpacity = actionData.backgroundOpacity || 1;
   }
 }
 
@@ -202,13 +216,24 @@ ipcMain.on("get-unique-code", (event) => {
 function setupServer() {
   const server = http.createServer(handleRequest);
 
-  server.listen(2326, () => {
-    console.log("Server listening on port 2326");
+  // Listen on a random port
+  server.listen(0, "0.0.0.0", () => {
+    const address = server.address();
+    const port = address.port;
+    console.log(`Server listening on port ${port}`);
+
+    // Now, advertise the service with the actual port
+    advertiseService(port);
   });
 
   server.on("error", (err) => {
     console.error("Server encountered an error:", err);
   });
+}
+
+function advertiseService(port) {
+  bonjour.publish({ name: "gizmo", type: "http", port: port });
+  console.log(`Advertising service on port ${port}`);
 }
 
 function handleRequest(req, res) {
@@ -243,11 +268,89 @@ function handleRequest(req, res) {
     case "/deleteAction":
       handleDeleteAction(req, res);
       break;
+    case "/resizeAction":
+      handleResizeAction(req, res);
+      break;
     default:
       res.writeHead(404, { "Content-Type": "text/plain" });
       res.end("Not Found");
       console.log("Not Found:", req.url);
   }
+}
+
+function handleResizeAction(req, res) {
+  const code = req.headers["code"];
+  if (code !== uniqueCode.toString()) {
+    res.writeHead(401, { "Content-Type": "text/plain" });
+    res.end("Unauthorized");
+    return;
+  }
+
+  let body = "";
+  req.on("data", (chunk) => {
+    body += chunk.toString();
+  });
+
+  req.on("end", () => {
+    try {
+      const actionID = JSON.parse(body).actionID;
+      const newSize = JSON.parse(body).newSize;
+      const pageNum = JSON.parse(body).pageNum;
+      resizeAction(actionID, newSize, pageNum);
+
+      res.writeHead(200, { "Content-Type": "text/plain" });
+      res.end("Action Resized");
+    } catch (error) {
+      console.error("Error handling /deleteAction:", error);
+      res.writeHead(400, { "Content-Type": "text/plain" });
+      res.end("Bad Request");
+    }
+  });
+}
+
+function resizeAction(actionID, newSize, pageNum) {
+  // Find index of the action
+  let actionIndex = -1;
+  for (let i = 0; i < pageLayouts[pageNum].actions.length; i++) {
+    if (pageLayouts[pageNum].actions[i] === actionID) {
+      actionIndex = i;
+      break;
+    }
+  }
+
+  if (actionIndex === -1) {
+    console.error("Action not found for resizing:", actionID);
+    return;
+  }
+
+  // Calculate row and column position
+  const rowPos = Math.floor(actionIndex / Page.maxColCount);
+  const colPos = actionIndex % Page.maxColCount;
+
+  // Check if action fits in the grid after resizing
+  if (
+    rowPos + newSize > Page.maxRowCount ||
+    colPos + newSize > Page.maxColCount
+  ) {
+    console.error("Resized action does not fit in the grid");
+    return;
+  }
+
+  // Clear all instances of the action
+  pageLayouts[pageNum].actions = pageLayouts[pageNum].actions.map((id) =>
+    id === actionID ? null : id
+  );
+
+  // Set the action in its new resized area
+  for (let row = rowPos; row < rowPos + newSize; row++) {
+    for (let col = colPos; col < colPos + newSize; col++) {
+      let index = row * Page.maxColCount + col;
+      pageLayouts[pageNum].actions[index] = actionID;
+    }
+  }
+
+  // Save the updated layouts
+  setPageLayouts();
 }
 
 function handleDeleteAction(req, res) {
@@ -364,7 +467,11 @@ function handleGetDeviceInfo(req, res) {
   try {
     const computerName = os.hostname();
     res.writeHead(200, { "Content-Type": "text/plain" });
-    res.end(computerName);
+    output = {
+      name: computerName,
+      version: VERSION,
+    };
+    res.end(JSON.stringify(output));
   } catch (error) {
     console.error("Error handling /getDeviceInfo:", error);
     res.writeHead(500, { "Content-Type": "text/plain" });
@@ -387,32 +494,57 @@ function handleSwapActions(req, res) {
 
   req.on("end", () => {
     try {
-      swapData = JSON.parse(body);
-      var sourceIndex = getFirstIndexOfID(swapData.source, 0);
+      const swapData = JSON.parse(body);
+      const sourceActionID = swapData.source;
+      const targetPage = swapData.targetPage;
+      const targetIndex = swapData.targetIndex;
 
-      var targetIndex = swapData.targetIndex;
-      var targetPage = swapData.targetPage;
-      // If there the page length does not include the target index, add nulls until it does
-
-      while (pageLayouts[swapData.targetPage].actions.length <= targetIndex) {
-        pageLayouts[swapData.targetPage].actions.push(null);
-      }
-
-      // Swap the actions at the indexes
-      var temp = pageLayouts[0].actions[targetIndex];
-      pageLayouts[targetPage].actions[targetIndex] =
-        pageLayouts[0].actions[sourceIndex];
-      pageLayouts[targetPage].actions[sourceIndex] = temp;
-      setPageLayouts();
+      swapAction(sourceActionID, targetPage, targetIndex);
 
       res.writeHead(200, { "Content-Type": "text/plain" });
-      res.end("Action Created");
+      res.end("Action Swapped");
     } catch (error) {
-      console.error("Error handling /swapAction:", error);
+      console.error("Error handling /swapActions:", error);
       res.writeHead(400, { "Content-Type": "text/plain" });
       res.end("Bad Request");
     }
   });
+}
+
+function swapAction(sourceActionID, targetPage, targetIndex) {
+  // Ensure the target page exists
+  if (!pageLayouts[targetPage]) {
+    pageLayouts[targetPage] = new Page();
+  }
+
+  // Extend the target page's actions array if needed
+  while (pageLayouts[targetPage].actions.length <= targetIndex) {
+    pageLayouts[targetPage].actions.push(null);
+  }
+
+  // Get the action at the target position
+  const targetActionID = pageLayouts[targetPage].actions[targetIndex];
+
+  // If the target position is null, move the source action there and set all instances of the source action to null
+  if (targetActionID === null) {
+    pageLayouts.forEach((page) => {
+      page.actions = page.actions.map((actionID) =>
+        actionID === sourceActionID ? null : actionID
+      );
+    });
+    pageLayouts[targetPage].actions[targetIndex] = sourceActionID;
+  } else {
+    // Swap all instances of the source action with the target action
+    pageLayouts.forEach((page) => {
+      page.actions = page.actions.map((actionID) => {
+        if (actionID === sourceActionID) return targetActionID;
+        if (actionID === targetActionID) return sourceActionID;
+        return actionID;
+      });
+    });
+  }
+
+  setPageLayouts();
 }
 
 function handleEstablishConnection(req, res) {
@@ -597,7 +729,12 @@ function runAction(actionID, direction) {
         let modifiersArray = Object.keys(action.modifiers)
           .filter((key) => action.modifiers[key])
           .map((key) => key.toLowerCase()); // Convert to lowercase
-        robot.keyTap(action.key.toLowerCase(), modifiersArray);
+        if (action.displayType == "toggle") {
+          console.log(action.key.toLowerCase());
+          robot.keyToggle(action.key.toLowerCase(), "down", modifiersArray);
+        } else {
+          robot.keyTap(action.key.toLowerCase(), modifiersArray);
+        }
       } else {
         let modifiersArray = Object.keys(action.ccModifiers)
           .filter((key) => action.ccModifiers[key])

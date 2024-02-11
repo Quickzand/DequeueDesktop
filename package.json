@@ -63,6 +63,7 @@
     "qrcode": "^1.5.3"
   },
   "dependencies": {
+    "bonjour": "^3.5.0",
     "electron-updater": "^6.1.7",
     "loudness": "^0.4.2",
     "node-abi": "^3.50.0",
