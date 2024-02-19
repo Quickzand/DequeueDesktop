@@ -36,10 +36,7 @@ function createWindow() {
     .catch((err) => console.error("Failed to load index.html:", err));
 
   win.on("close", (event) => {
-    if (!app.isQuitting) {
-      event.preventDefault();
-      win.hide();
-    }
+    win = null;
   });
 }
 
@@ -63,6 +60,7 @@ app.whenReady().then(() => {
   });
 
   tray.on("click", () => {
+    console.log(win);
     if (win) {
       win.isVisible() ? win.hide() : win.show();
     } else {
@@ -98,9 +96,12 @@ app.on("activate", () => {
   }
 });
 
-app.on("before-quit", () => {
+app.on("before-quit", (event) => {
+  console.log("Application is quitting");
+  event.preventDefault();
   bonjour.unpublishAll(() => {
     bonjour.destroy();
+    app.exit();
   });
 });
 
