@@ -15,10 +15,13 @@ const userDataPath = app.getPath("userData");
 const codeFilePath = path.join(userDataPath, "code.txt");
 const actionsFilePath = path.join(userDataPath, "actions.json");
 const pageLayoutFilePath = path.join(userDataPath, "pageLayout.json");
+const computerIDFilePath = path.join(userDataPath, "computerID.txt");
 
 let tray = null;
 let win = null;
 let isQuitting = false; // Flag to indicate if the app is quitting
+
+let comptuerID = "";
 
 function createWindow() {
   win = new BrowserWindow({
@@ -470,6 +473,7 @@ function handleGetDeviceInfo(req, res) {
     res.writeHead(200, { "Content-Type": "text/plain" });
     output = {
       name: computerName,
+      computerID: computerID,
       version: VERSION,
     };
     res.end(JSON.stringify(output));
@@ -841,3 +845,27 @@ function getFirstIndexOfID(id, pageNum) {
 
 getActions();
 getPageLayouts();
+
+// Get the computer ID, or generate a new one if it doesn't exist
+fs.readFile(computerIDFilePath, "utf8", (err, data) => {
+  if (err) {
+    // Make a really long UID string
+    const newID = Array(64)
+      .fill("0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz")
+      .map(function (x) {
+        return x[Math.floor(Math.random() * x.length)];
+      })
+      .join("");
+    computerID = newID;
+    fs.writeFile(computerIDFilePath, newID, (err) => {
+      if (err) {
+        console.error("Error saving new computer ID:", err);
+      } else {
+        console.log("New computer ID generated and saved:", newID);
+      }
+    });
+  } else {
+    console.log("Using existing computer ID:", data);
+    computerID = data;
+  }
+});
